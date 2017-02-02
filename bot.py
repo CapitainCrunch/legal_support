@@ -2,7 +2,7 @@ import random
 from telegram import ReplyKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, RegexHandler, MessageHandler, Filters, ConversationHandler
 from telegram.contrib.botan import Botan
-from config import ALLTESTS, BOTAN_TOKEN
+from config import ALLTESTS, BOTAN_TOKEN, LEGAL
 from pyexcel_xlsx import get_data, save_data
 from itertools import zip_longest
 from collections import OrderedDict
