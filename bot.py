@@ -21,7 +21,7 @@ start_msg = 'Привет! Я буду защищать тебя от обман
             'Для поиска просто введи название компании, рекламного ролика, товара или фразы из рекламы. ' \
             'Если информации не будет в базе, мы получим твой запрос и организуем проверку'
 
-ASK_PASS = range(1)
+ASK_PASS, APPROVE = range(2)
 
 dbs = {'Компания': Company,
        'Услуга': Service,
@@ -81,7 +81,7 @@ def unknown_req_add(tid, txt):
 
 def get_new_layout(uid):
     if uid in ADMINS:
-        k_clients = [['Выгрузка', 'Сгенерировать пароль']]
+        k_clients = [['Выгрузка'], ['Сгенерировать пароль']]
         return k_clients
 
 
@@ -120,7 +120,7 @@ def check_password(func):
 def start(bot, update):
     print(update)
     uid = update.message.from_user.id
-    bot.sendMessage(uid, start_msg, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid)))
+    bot.sendMessage(uid, start_msg, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
 
 
 @check_password
@@ -159,13 +159,19 @@ def search_wo_cat(bot, update):
         after_request_handler()
     if not res:
         if unknown_req_add(uid, message.strip('"\'!?[]{},. ')):
-            bot.sendMessage(uid, search_fckup_msg, disable_web_page_preview=True, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid)))
+            bot.sendMessage(uid, search_fckup_msg,
+                            disable_web_page_preview=True,
+                            reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
         else:
-            bot.sendMessage(uid, search_fckup_msg, disable_web_page_preview=True, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid)))
+            bot.sendMessage(uid, search_fckup_msg,
+                            disable_web_page_preview=True,
+                            reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
             return
     for m in res:
         msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
-    bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid)))
+    bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True,
+                    reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
     botan.track(update.message, event_name='search_wo_cat')
 
 
@@ -212,17 +218,29 @@ def output(bot, update):
 
 def get_new_password(bot, update):
     uid = update.message.from_user.id
+    r_keyboard = [['Да'], ['Нет']]
     if uid in ADMINS:
         before_request_handler()
-        query = Passwords.update(active=0)
-        query.execute()
         while True:
             new_password = generate_password()
             password, create = Passwords.get_or_create(password=new_password)
             if create:
-                bot.sendMessage(uid, 'Новый пароль: <b>{}</b>'.format(new_password), parse_mode=ParseMode.HTML)
-                break
-        after_request_handler()
+                bot.sendMessage(uid, 'Новый пароль: <b>{}</b>\nМеняем?'.format(new_password),
+                                parse_mode=ParseMode.HTML,
+                                reply_markup=ReplyKeyboardMarkup(r_keyboard, resize_keyboard=True))
+                after_request_handler()
+                return APPROVE
+
+def approve(bot, update):
+    uid = update.message.from_user.id
+    message = update.message.text
+    if message == 'Да':
+        query = Passwords.update(active=0)
+        query.execute()
+        bot.sendMessage(uid, 'Пароль изменил')
+    elif message == 'Нет':
+        bot.sendMessage(uid, 'Пароль не менял')
+
 
 if __name__ == '__main__':
     updater = None
@@ -242,6 +260,13 @@ if __name__ == '__main__':
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(RegexHandler('^Выгрузка$', output))
     dp.add_handler(RegexHandler('^Сгенерировать пароль$', get_new_password))
+
+    pass_change = ConversationHandler(
+        entry_points=[RegexHandler('^Сгенерировать пароль$', get_new_password)],
+        states={APPROVE: [RegexHandler('^(Да)|(Нет)$', approve)]},
+        fallbacks=[CommandHandler('start', start)]
+    )
+    dp.add_handler(pass_change)
     dp.add_handler(MessageHandler(Filters.text, search_wo_cat))
     dp.add_handler(MessageHandler(Filters.document, process_file))
     updater.start_polling()
