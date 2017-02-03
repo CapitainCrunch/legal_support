@@ -2,22 +2,26 @@ import random
 from telegram import ReplyKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, RegexHandler, MessageHandler, Filters, ConversationHandler
 from telegram.contrib.botan import Botan
-from config import ALLTESTS, BOTAN_TOKEN, LEGAL
+from config import ALLTESTS, BOTAN_TOKEN, LEGAL, ADMINS
 from pyexcel_xlsx import get_data, save_data
 from itertools import zip_longest
 from collections import OrderedDict
 import logging
 from datetime import datetime as dt
 import os
+import sys
+import functools
 from model import save, Users, \
     UndefinedRequests, Company, Good, Service, Aliases, DoesNotExist, fn, \
-    before_request_handler, after_request_handler
+    before_request_handler, after_request_handler, Passwords
 
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logging.basicConfig(filename='logs.log', filemode='w+', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+start_msg = 'Привет! Я буду защищать тебя от обмана в рекламе и помогу с безопасным выбором мест для покупки товаров и услуг. ' \
+            'В моей базе - несколько сотен компаний и рекламных роликов и она постоянно пополняется. ' \
+            'Для поиска просто введи название компании, рекламного ролика, товара или фразы из рекламы. ' \
+            'Если информации не будет в базе, мы получим твой запрос и организуем проверку'
 
-ADMINS = [209743126, 56631662, 214688324]
+ASK_PASS = range(1)
 
 dbs = {'Компания': Company,
        'Услуга': Service,
@@ -56,12 +60,10 @@ search_fckup_msg = '''Мы не нашли совпадений, но приня
 Будем рады выполнить другой запрос!'''
 
 
-
-s = 'abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-passlen = 8
-p = ''.join(random.sample(s, passlen))
-print p
-
+def generate_password():
+    s = 'abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    passlen = 8
+    return ''.join(random.sample(s, passlen))
 
 
 def unknown_req_add(tid, txt):
@@ -77,27 +79,51 @@ def unknown_req_add(tid, txt):
     return False
 
 
+def get_new_layout(uid):
+    if uid in ADMINS:
+        k_clients = [['Выгрузка', 'Сгенерировать пароль']]
+        return k_clients
+
+
+def check_password(func):
+    @functools.wraps(func)
+    def decorator(*args, **kwargs):
+        bot, update = args
+        uid = update.message.from_user.id
+        message = update.message.text
+        username = update.message.from_user.username
+        name = update.message.from_user.first_name
+        before_request_handler()
+        active_pass = Passwords.get(Passwords.active == 1).password
+        user, created = Users.get_or_create(telegram_id=uid, username=username, name=name)
+        if created:
+            bot.sendMessage(uid, 'Введи пароль')
+        elif user.current_password == active_pass:
+            result = func(*args, **kwargs)
+            return result
+        elif user.current_password != active_pass:
+            try:
+                Passwords.get(Passwords.password == message, Passwords.active == 1)
+                user.current_password = message
+                user.save()
+                bot.sendMessage(uid, 'Пароль обновлен')
+            except:
+                bot.sendMessage(uid, 'Твой пароль неправильный, введи новый')
+        else:
+            bot.sendMessage(uid, 'Пароль неправильный, попробуй еще раз')
+
+        after_request_handler()
+    return decorator
+
+
+@check_password
 def start(bot, update):
     print(update)
-    username = update.message.from_user.username
-    name = update.message.from_user.first_name
     uid = update.message.from_user.id
-    msg = 'Привет! Я буду защищать тебя от обмана в рекламе и помогу с безопасным выбором мест для покупки товаров и услуг. ' \
-          'В моей базе - несколько сотен компаний и рекламных роликов и она постоянно пополняется. ' \
-          'Для поиска просто введи название компании, рекламного ролика, товара или фразы из рекламы. ' \
-          'Если информации не будет в базе, мы получим твой запрос и организуем проверку'
-    try:
-        before_request_handler()
-        Users.get(Users.telegram_id == uid)
-    except DoesNotExist:
-        Users.create(telegram_id=uid, username=username, name=name)
-    after_request_handler()
-    if uid in ADMINS:
-        bot.sendMessage(uid, msg)
-        return
-    bot.sendMessage(uid, msg)
+    bot.sendMessage(uid, start_msg, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid)))
 
 
+@check_password
 def search_wo_cat(bot, update):
     print(update)
     uid = update.message.from_user.id
@@ -133,18 +159,17 @@ def search_wo_cat(bot, update):
         after_request_handler()
     if not res:
         if unknown_req_add(uid, message.strip('"\'!?[]{},. ')):
-            bot.sendMessage(uid, search_fckup_msg, disable_web_page_preview=True)
+            bot.sendMessage(uid, search_fckup_msg, disable_web_page_preview=True, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid)))
         else:
-            bot.sendMessage(uid, search_fckup_msg, disable_web_page_preview=True)
+            bot.sendMessage(uid, search_fckup_msg, disable_web_page_preview=True, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid)))
             return
     for m in res:
         msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
-    bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+    bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid)))
     botan.track(update.message, event_name='search_wo_cat')
 
 
 def process_file(bot, update):
-    print(update)
     uid = update.message.from_user.id
     if uid in ADMINS:
         file_id = update.message.document.file_id
@@ -185,12 +210,40 @@ def output(bot, update):
     os.remove(fname)
 
 
-updater = Updater(ALLTESTS)
-dp = updater.dispatcher
-dp.add_handler(CommandHandler('start', start))
-dp.add_handler(CommandHandler('unload', output))
-dp.add_handler(MessageHandler(Filters.text, search_wo_cat))
-dp.add_handler(MessageHandler(Filters.document, process_file))
-updater.start_polling()
-updater.idle()
+def get_new_password(bot, update):
+    uid = update.message.from_user.id
+    if uid in ADMINS:
+        before_request_handler()
+        query = Passwords.update(active=0)
+        query.execute()
+        while True:
+            new_password = generate_password()
+            password, create = Passwords.get_or_create(password=new_password)
+            if create:
+                bot.sendMessage(uid, 'Новый пароль: <b>{}</b>'.format(new_password), parse_mode=ParseMode.HTML)
+                break
+        after_request_handler()
+
+if __name__ == '__main__':
+    updater = None
+    token = None
+    if len(sys.argv) > 1:
+        token = sys.argv[-1]
+        if token.lower() == 'legal':
+            updater = Updater(LEGAL)
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            logging.basicConfig(filename=BASE_DIR + '/out.log', filemode='a', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    else:
+        updater = Updater(ALLTESTS)
+        logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+
+    dp = updater.dispatcher
+    dp.add_handler(CommandHandler('unload', output))
+    dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(RegexHandler('^Выгрузка$', output))
+    dp.add_handler(RegexHandler('^Сгенерировать пароль$', get_new_password))
+    dp.add_handler(MessageHandler(Filters.text, search_wo_cat))
+    dp.add_handler(MessageHandler(Filters.document, process_file))
+    updater.start_polling()
+    updater.idle()
 
