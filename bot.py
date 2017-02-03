@@ -231,6 +231,7 @@ def get_new_password(bot, update):
                 after_request_handler()
                 return APPROVE
 
+
 def approve(bot, update):
     uid = update.message.from_user.id
     message = update.message.text
@@ -240,6 +241,7 @@ def approve(bot, update):
         bot.sendMessage(uid, 'Пароль изменил')
     elif message == 'Нет':
         bot.sendMessage(uid, 'Пароль не менял')
+    return ConversationHandler.END
 
 
 if __name__ == '__main__':
