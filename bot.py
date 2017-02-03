@@ -97,7 +97,7 @@ def check_password(func):
         active_pass = Passwords.get(Passwords.active == 1).password
         user, created = Users.get_or_create(telegram_id=uid, username=username, name=name)
         if created:
-            bot.sendMessage(uid, 'Введи пароль')
+            bot.sendMessage(uid, 'Введите пароль')
         elif user.current_password == active_pass:
             result = func(*args, **kwargs)
             return result
@@ -108,9 +108,9 @@ def check_password(func):
                 user.save()
                 bot.sendMessage(uid, 'Пароль обновлен')
             except:
-                bot.sendMessage(uid, 'Твой пароль неправильный, введи новый')
+                bot.sendMessage(uid, 'Ваш пароль неправильный, введите новый')
         else:
-            bot.sendMessage(uid, 'Пароль неправильный, попробуй еще раз')
+            bot.sendMessage(uid, 'Пароль неправильный, попробуйте еще раз')
 
         after_request_handler()
     return decorator
