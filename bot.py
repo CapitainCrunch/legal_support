@@ -261,8 +261,6 @@ if __name__ == '__main__':
     dp.add_handler(CommandHandler('unload', output))
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(RegexHandler('^Выгрузка$', output))
-    dp.add_handler(RegexHandler('^Сгенерировать пароль$', get_new_password))
-
     pass_change = ConversationHandler(
         entry_points=[RegexHandler('^Сгенерировать пароль$', get_new_password)],
         states={APPROVE: [RegexHandler('^(Да)|(Нет)$', approve)]},
