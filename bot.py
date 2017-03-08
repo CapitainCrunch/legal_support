@@ -2,6 +2,7 @@ import random
 from telegram import ReplyKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, RegexHandler, MessageHandler, Filters, ConversationHandler
 from telegram.contrib.botan import Botan
+from utils import get_alias_match
 from config import ALLTESTS, BOTAN_TOKEN, LEGAL, ADMINS
 from pyexcel_xlsx import get_data, save_data
 from itertools import zip_longest
@@ -133,16 +134,7 @@ def search_wo_cat(bot, update):
     res = []
     msg = ''
     try:
-        check_aliases = (Aliases.select().where((fn.lower(Aliases.alias1) == message) |
-                                                (fn.lower(Aliases.alias2) == message) |
-                                                (fn.lower(Aliases.alias3) == message) |
-                                                (fn.lower(Aliases.alias4) == message) |
-                                                (fn.lower(Aliases.alias5) == message) |
-                                                (fn.lower(Aliases.alias6) == message) |
-                                                (fn.lower(Aliases.alias7) == message) |
-                                                (fn.lower(Aliases.alias8) == message) |
-                                                (fn.lower(Aliases.alias9) == message) |
-                                                (fn.lower(Aliases.alias10) == message))).execute()
+        check_aliases = get_alias_match(message)
         alias = [c.key for c in check_aliases]
         if alias:
             message = alias[0]
@@ -167,6 +159,8 @@ def search_wo_cat(bot, update):
             # send to Oleg
             bot.send_message(214688324, 'Кто-то искал <b>{}</b> и не нашел'.format(message),
                              parse_mode=ParseMode.HTML)
+        else:
+            bot.sendMessage(uid, search_fckup_msg, disable_web_page_preview=True)
             return
     for m in res:
         msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
@@ -187,7 +181,7 @@ def process_file(bot, update):
         columns = ('name', 'description', 'url')
         for sheet in sheets:
             if sheet.lower() == 'алиасы':
-                columns = ['key', 'alias1', 'alias2', 'alias3', 'alias4', 'alias5', 'alias6', 'alias7', 'alias8', 'alias9', 'alias10']
+                columns = ['key'] + ['alias' + str(i) for i in range(1, 101)]
             _data = []
             for row in sheets[sheet][1:]:
                 if not row:
