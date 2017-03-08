@@ -164,10 +164,9 @@ def search_wo_cat(bot, update):
             bot.sendMessage(uid, search_fckup_msg,
                             disable_web_page_preview=True,
                             reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
-        else:
-            bot.sendMessage(uid, search_fckup_msg,
-                            disable_web_page_preview=True,
-                            reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
+            # send to Oleg
+            bot.send_message(214688324, 'Кто-то искал <b>{}</b> и не нашел'.format(message),
+                             parse_mode=ParseMode.HTML)
             return
     for m in res:
         msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
@@ -234,6 +233,16 @@ def get_new_password(bot, update):
                 return APPROVE
 
 
+def clear(bot, update):
+    uid = update.message.from_user.id
+    if uid not in ADMINS:
+        return
+    if UndefinedRequests.table_exists():
+        UndefinedRequests.drop_table()
+    UndefinedRequests.create_table()
+    bot.send_message(uid, 'Таблицу очистил')
+
+
 def approve(bot, update):
     uid = update.message.from_user.id
     message = update.message.text
@@ -261,6 +270,7 @@ if __name__ == '__main__':
 
     dp = updater.dispatcher
     dp.add_handler(CommandHandler('unload', output))
+    dp.add_handler(CommandHandler('clear', clear))
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(RegexHandler('^Выгрузка$', output))
     pass_change = ConversationHandler(
