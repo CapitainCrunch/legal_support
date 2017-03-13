@@ -5,6 +5,7 @@ from datetime import datetime as dt
 import os
 import sys
 import functools
+from utils import get_alias_match
 from threading import Thread
 from itertools import zip_longest
 from telegram import ReplyKeyboardMarkup, ParseMode, ReplyKeyboardRemove
@@ -40,17 +41,6 @@ dbs = {'Компания': Company,
 
 SEARCH = 1
 user_data = dict()
-
-aliases = [Aliases.alias1,
-           Aliases.alias2,
-           Aliases.alias3,
-           Aliases.alias4,
-           Aliases.alias5,
-           Aliases.alias6,
-           Aliases.alias7,
-           Aliases.alias8,
-           Aliases.alias9,
-           Aliases.alias10]
 
 botan = Botan(BOTAN_TOKEN)
 
@@ -122,16 +112,7 @@ def check_password(func):
 def make_search(message):
     res = []
     try:
-        check_aliases = (Aliases.select().where((fn.lower(Aliases.alias1) == message) |
-                                                (fn.lower(Aliases.alias2) == message) |
-                                                (fn.lower(Aliases.alias3) == message) |
-                                                (fn.lower(Aliases.alias4) == message) |
-                                                (fn.lower(Aliases.alias5) == message) |
-                                                (fn.lower(Aliases.alias6) == message) |
-                                                (fn.lower(Aliases.alias7) == message) |
-                                                (fn.lower(Aliases.alias8) == message) |
-                                                (fn.lower(Aliases.alias9) == message) |
-                                                (fn.lower(Aliases.alias10) == message))).execute()
+        check_aliases = get_alias_match(message)
         alias = [c.key for c in check_aliases]
         if alias:
             message = alias[0]
@@ -195,7 +176,7 @@ def process_file(bot, update):
         columns = ('name', 'description', 'url')
         for sheet in sheets:
             if sheet.lower() == 'алиасы':
-                columns = ['key', 'alias1', 'alias2', 'alias3', 'alias4', 'alias5', 'alias6', 'alias7', 'alias8', 'alias9', 'alias10']
+                columns = ['key'] + ['alias' + str(i) for i in range(1, 101)]
             _data = []
             for row in sheets[sheet][1:]:
                 if not row:
