@@ -155,13 +155,11 @@ def search_wo_cat(bot, update):
                             disable_web_page_preview=True,
                             reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
         else:
-            if uid in ADMINS:
-                bot.sendMessage(uid, search_fckup_msg,
-                                disable_web_page_preview=True,
-                                reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
-            bot.sendMessage(uid, search_fckup_msg)
-            return
 
+            bot.sendMessage(uid, search_fckup_msg,
+                            disable_web_page_preview=True,
+                            reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
+            return
     for m in res:
         msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
     bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML,
