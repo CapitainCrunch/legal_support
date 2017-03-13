@@ -288,10 +288,12 @@ def start_send(bot, update):
     if message == 'Да':
         t = Thread(target=mails, args=(bot, text, uid), name='mails')
         t.start()
-        bot.sendMessage(uid, 'Начал отправку')
+        bot.sendMessage(uid, 'Начал отправку',
+                        reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
     elif message == 'Нет':
         del user_data[uid]
-        bot.sendMessage(uid, 'Ок, не будет ничего отправлять :)')
+        bot.sendMessage(uid, 'Ок, не будет ничего отправлять :)',
+                        reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
         return ConversationHandler.END
     else:
         return
@@ -304,7 +306,7 @@ def clear(bot, update):
     if UndefinedRequests.table_exists():
         UndefinedRequests.drop_table()
     UndefinedRequests.create_table()
-    bot.send_message(uid, 'Таблицу очистил')
+    bot.send_message(uid, 'Таблицу очистил', reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
  
 if __name__ == '__main__':
     updater = None
