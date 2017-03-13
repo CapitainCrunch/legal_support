@@ -4,17 +4,21 @@ from config import MYSQL_CONN
 
 db = MySQLDatabase(**MYSQL_CONN)
 
+
 def before_request_handler():
     db.connect()
 
+
 def after_request_handler():
     db.close()
+
 
 class BaseModel(Model):
     id = PrimaryKeyField()
     dt = DateTimeField(default=datetime.now())
     class Meta:
         database = db
+
 
 class Users(BaseModel):
     telegram_id = IntegerField(unique=1)
@@ -45,6 +49,7 @@ class UndefinedRequests(BaseModel):
     from_user = ForeignKeyField(Users,
                                   to_field='telegram_id')
     request = CharField()
+    is_answered = BooleanField(default=False)
 
 
 class Aliases(BaseModel):

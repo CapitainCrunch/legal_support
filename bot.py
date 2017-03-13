@@ -1,16 +1,17 @@
 import random
-from telegram import ReplyKeyboardMarkup, ParseMode
-from telegram.ext import Updater, CommandHandler, RegexHandler, MessageHandler, Filters, ConversationHandler
-from telegram.contrib.botan import Botan
-from config import ALLTESTS, BOTAN_TOKEN, LEGAL, ADMINS
-from pyexcel_xlsx import get_data, save_data
-from itertools import zip_longest
 from collections import OrderedDict
 import logging
 from datetime import datetime as dt
 import os
 import sys
 import functools
+from threading import Thread
+from itertools import zip_longest
+from telegram import ReplyKeyboardMarkup, ParseMode, ReplyKeyboardRemove
+from telegram.ext import Updater, CommandHandler, RegexHandler, MessageHandler, Filters, ConversationHandler
+from telegram.contrib.botan import Botan
+from config import ALLTESTS, BOTAN_TOKEN, LEGAL, ADMINS, OLEG
+from pyexcel_xlsx import get_data, save_data
 from model import save, Users, \
     UndefinedRequests, Company, Good, Service, Aliases, DoesNotExist, fn, \
     before_request_handler, after_request_handler, Passwords
@@ -30,6 +31,7 @@ start_msg = '''Вас приветствует автоматический по
 
 
 ASK_PASS, APPROVE = range(2)
+SECOND, THIRD, FORTH = range(3)
 
 dbs = {'Компания': Company,
        'Услуга': Service,
@@ -37,7 +39,7 @@ dbs = {'Компания': Company,
        'Алиасы': Aliases}
 
 SEARCH = 1
-user_search = dict()
+user_data = dict()
 
 aliases = [Aliases.alias1,
            Aliases.alias2,
@@ -82,7 +84,7 @@ def unknown_req_add(tid, txt):
 
 def get_new_layout(uid):
     if uid in ADMINS:
-        k_clients = [['Выгрузка'], ['Сгенерировать пароль']]
+        k_clients = [['Выгрузка'], ['Сгенерировать пароль'], ['Отправить всем']]
         return k_clients
 
 
@@ -117,21 +119,8 @@ def check_password(func):
     return decorator
 
 
-@check_password
-def start(bot, update):
-    print(update)
-    uid = update.message.from_user.id
-    bot.sendMessage(uid, start_msg, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True),
-                    disable_web_page_preview=True)
-
-
-@check_password
-def search_wo_cat(bot, update):
-    print(update)
-    uid = update.message.from_user.id
-    message = update.message.text.strip('"\'!?[]{},. ').lower()
+def make_search(message):
     res = []
-    msg = ''
     try:
         check_aliases = (Aliases.select().where((fn.lower(Aliases.alias1) == message) |
                                                 (fn.lower(Aliases.alias2) == message) |
@@ -159,6 +148,24 @@ def search_wo_cat(bot, update):
         except DoesNotExist:
             pass
         after_request_handler()
+    return res
+
+
+@check_password
+def start(bot, update):
+    print(update)
+    uid = update.message.from_user.id
+    bot.sendMessage(uid, start_msg, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True),
+                    disable_web_page_preview=True)
+
+
+@check_password
+def search_wo_cat(bot, update):
+    print(update)
+    uid = update.message.from_user.id
+    message = update.message.text.strip('"\'!?[]{},. ').lower()
+    msg = ''
+    res = make_search(message)
     if not res:
         if unknown_req_add(uid, message.strip('"\'!?[]{},. ')):
             bot.sendMessage(uid, search_fckup_msg,
@@ -199,6 +206,21 @@ def process_file(bot, update):
             else:
                 bot.sendMessage(uid, 'Что-то не так с данными')
         os.remove(fname)
+        data = [(_id, tid, req) for _id, tid, req in UndefinedRequests.select(UndefinedRequests.id,
+                                                                              UndefinedRequests.from_user,
+                                                                              UndefinedRequests.request).where(UndefinedRequests.is_answered is False)]
+        for _id, tid, request in data:
+            msg = ''
+            res = make_search(request)
+            if res:
+                q = UndefinedRequests.update(UndefinedRequests.is_answered == True).where(UndefinedRequests.id == _id)
+                q.execute()
+                for m in res:
+                    msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
+                bot.sendMessage(tid, msg, parse_mode=ParseMode.HTML,
+                                disable_web_page_preview=True,
+                                reply_markup=ReplyKeyboardMarkup(get_new_layout(tid), resize_keyboard=True))
+        bot.sendMessage(uid, 'Обновления пользователям отправил')
 
 
 def output(bot, update):
@@ -221,10 +243,13 @@ def output(bot, update):
 def get_new_password(bot, update):
     uid = update.message.from_user.id
     r_keyboard = [['Да'], ['Нет']]
+    if not user_data.get(uid):
+        user_data[uid] = {}
     if uid in ADMINS:
         before_request_handler()
         while True:
             new_password = generate_password()
+            user_data[uid]['current_pass'] = new_password
             password, create = Passwords.get_or_create(password=new_password)
             if create:
                 bot.sendMessage(uid, 'Новый пароль: <b>{}</b>\nМеняем?'.format(new_password),
@@ -237,13 +262,58 @@ def get_new_password(bot, update):
 def approve(bot, update):
     uid = update.message.from_user.id
     message = update.message.text
+    cur_pass = user_data[uid]['current_pass']
     if message == 'Да':
-        query = Passwords.update(active=0)
+        query = Passwords.update(Passwords.active == False).where(Passwords.password != cur_pass)
         query.execute()
         bot.sendMessage(uid, 'Пароль изменил')
     elif message == 'Нет':
+        q = Passwords.delete().where(Passwords.password == cur_pass)
+        q.execute()
         bot.sendMessage(uid, 'Пароль не менял')
-    return ConversationHandler.END
+    bot.sendMessage(uid, 'Ответь на вопрос :)')
+
+
+def start_sendtoall(bot, update):
+    uid = update.message.from_user.id
+    if uid not in ADMINS:
+        return ConversationHandler.END
+    bot.sendMessage(uid, 'Что будем отправлять?', reply_markup=ReplyKeyboardRemove())
+    return SECOND
+
+
+def get_text_to_send(bot, update):
+    uid = update.message.from_user.id
+    message = update.message.text
+    user_data[uid] = {'text_to_send': message}
+    bot.sendMessage(uid, 'Отправляем?', reply_markup=ReplyKeyboardMarkup([['Да'], ['Нет']], one_time_keyboard=True))
+    return THIRD
+
+
+def mails(bot, text, reply_uid):
+    uids = [t.telegram_id for t in Users.select().execute()]
+    for uid in uids:
+        try:
+            bot.sendMessage(uid, text)
+        except:
+            pass
+    bot.sendMessage(reply_uid, 'Всем отправил')
+
+
+def start_send(bot, update):
+    uid = update.message.from_user.id
+    message = update.message.text
+    text = user_data[uid].get('text_to_send')
+    if message == 'Да':
+        t = Thread(target=mails, args=(bot, text, uid), name='mails')
+        t.start()
+        bot.sendMessage(uid, 'Начал отправку')
+    elif message == 'Нет':
+        del user_data[uid]
+        bot.sendMessage(uid, 'Ок, не будет ничего отправлять :)')
+        return ConversationHandler.END
+    else:
+        return
 
 
 if __name__ == '__main__':
@@ -254,7 +324,10 @@ if __name__ == '__main__':
         if token.lower() == 'legal':
             updater = Updater(LEGAL)
             BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-            logging.basicConfig(filename=BASE_DIR + '/out.log', filemode='a', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+            logging.basicConfig(filename=BASE_DIR + '/out.log',
+                                filemode='a',
+                                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                level=logging.INFO)
     else:
         updater = Updater(ALLTESTS)
         logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
@@ -268,6 +341,15 @@ if __name__ == '__main__':
         states={APPROVE: [RegexHandler('^(Да)|(Нет)$', approve)]},
         fallbacks=[CommandHandler('start', start)]
     )
+
+    mailing = ConversationHandler(
+        entry_points=[RegexHandler('^Отправить всем$', start_sendtoall)],
+        states={SECOND: [MessageHandler(Filters.text, get_text_to_send)],
+                THIRD: [MessageHandler(Filters.text, start_send)]},
+        fallbacks=[CommandHandler('start', start)]
+    )
+
+    dp.add_handler(mailing)
     dp.add_handler(pass_change)
     dp.add_handler(MessageHandler(Filters.text, search_wo_cat))
     dp.add_handler(MessageHandler(Filters.document, process_file))
