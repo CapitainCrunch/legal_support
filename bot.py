@@ -316,6 +316,15 @@ def start_send(bot, update):
         return
 
 
+def clear(bot, update):
+    uid = update.message.from_user.id
+    if uid not in ADMINS:
+        return
+    if UndefinedRequests.table_exists():
+        UndefinedRequests.drop_table()
+    UndefinedRequests.create_table()
+    bot.send_message(uid, 'Таблицу очистил')
+ 
 if __name__ == '__main__':
     updater = None
     token = None
@@ -335,6 +344,7 @@ if __name__ == '__main__':
     dp = updater.dispatcher
     dp.add_handler(CommandHandler('unload', output))
     dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(CommandHandler('clear', clear))
     dp.add_handler(RegexHandler('^Выгрузка$', output))
     pass_change = ConversationHandler(
         entry_points=[RegexHandler('^Сгенерировать пароль$', get_new_password)],

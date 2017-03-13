@@ -90,3 +90,4 @@ legal/
 .ropeproject
 
 config.py
+.idea/
