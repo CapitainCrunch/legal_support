@@ -76,6 +76,8 @@ def get_new_layout(uid):
     if uid in ADMINS:
         k_clients = [['Выгрузка'], ['Сгенерировать пароль'], ['Отправить всем']]
         return k_clients
+    return []
+
 
 
 def check_password(func):
@@ -153,10 +155,13 @@ def search_wo_cat(bot, update):
                             disable_web_page_preview=True,
                             reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
         else:
-            bot.sendMessage(uid, search_fckup_msg,
-                            disable_web_page_preview=True,
-                            reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
+            if uid in ADMINS:
+                bot.sendMessage(uid, search_fckup_msg,
+                                disable_web_page_preview=True,
+                                reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
+            bot.sendMessage(uid, search_fckup_msg)
             return
+
     for m in res:
         msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
     bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML,
