@@ -67,9 +67,7 @@ def unknown_req_add(tid, txt):
     except DoesNotExist:
         UndefinedRequests.create(from_user=tid, request=txt)
         after_request_handler()
-        return True
-    after_request_handler()
-    return False
+    return True
 
 
 def get_reply_keyboard(uid):
@@ -151,16 +149,12 @@ def search_wo_cat(bot, update):
     msg = ''
     res = make_search(message)
     if not res:
-        if unknown_req_add(uid, message.strip('"\'!?[]{},. ')):
-            bot.sendMessage(uid, search_fckup_msg,
-                            disable_web_page_preview=True,
-                            reply_markup=get_reply_keyboard(uid))
-        else:
-
-            bot.sendMessage(uid, search_fckup_msg,
-                            disable_web_page_preview=True,
-                            reply_markup=get_reply_keyboard(uid))
-            return
+        unknown_req_add(uid, message.strip('"\'!?[]{},. '))
+        bot.sendMessage(uid, search_fckup_msg,
+                        disable_web_page_preview=True,
+                        reply_markup=get_reply_keyboard(uid))
+        bot.sendMessage(OLEG, 'Новый поиск!\n\n' + message)
+        return
     for m in res:
         msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
     bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML,
