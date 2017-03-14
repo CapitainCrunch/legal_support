@@ -190,15 +190,17 @@ def process_file(bot, update):
             else:
                 bot.sendMessage(uid, 'Что-то не так с данными')
         os.remove(fname)
-        data = [(_id, tid, req) for _id, tid, req in UndefinedRequests.select(UndefinedRequests.id,
-                                                                              UndefinedRequests.from_user,
-                                                                              UndefinedRequests.request).where(UndefinedRequests.is_answered is False)]
-        for _id, tid, request in data:
+        data = [u for u in UndefinedRequests.select(UndefinedRequests.id,
+                                                    UndefinedRequests.from_user,
+                                                    UndefinedRequests.request).where(UndefinedRequests.is_answered == 0).execute()]
+        for d in data:
+            _id = d.id
+            tid = d.from_user.telegram_id
+            request = d.request
             msg = ''
             res = make_search(request)
             if res:
-                q = UndefinedRequests.update(UndefinedRequests.is_answered == True).where(UndefinedRequests.id == _id)
-                q.execute()
+                UndefinedRequests.update(is_answered=True).where(UndefinedRequests.id == _id).execute()
                 for m in res:
                     msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
                 bot.sendMessage(tid, msg, parse_mode=ParseMode.HTML,
@@ -248,7 +250,7 @@ def approve(bot, update):
     message = update.message.text
     cur_pass = user_data[uid]['current_pass']
     if message == 'Да':
-        query = Passwords.update(Passwords.active == False).where(Passwords.password != cur_pass)
+        query = Passwords.update(active=False).where(Passwords.password != cur_pass)
         query.execute()
         bot.sendMessage(uid, 'Пароль изменил')
     elif message == 'Нет':
