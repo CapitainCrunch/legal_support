@@ -287,6 +287,7 @@ def mails(bot, text, reply_uid):
         except:
             pass
     bot.sendMessage(reply_uid, 'Всем отправил')
+    return ConversationHandler.END
 
 
 @log
@@ -317,7 +318,8 @@ def clear(bot, update):
         UndefinedRequests.drop_table()
     UndefinedRequests.create_table()
     bot.send_message(uid, 'Таблицу очистил', reply_markup=get_reply_keyboard(uid))
- 
+
+
 if __name__ == '__main__':
     updater = None
     token = None
