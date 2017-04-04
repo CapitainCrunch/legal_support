@@ -69,25 +69,21 @@ def unknown_req_add(tid, txt):
     except DoesNotExist:
         UndefinedRequests.create(from_user=tid, request=txt)
         after_request_handler()
-        return True
-    after_request_handler()
-    return False
+    return True
 
 
 @log
-def get_new_layout(uid):
+def get_reply_keyboard(uid):
     if uid in ADMINS:
         k_clients = [['Выгрузка'], ['Сгенерировать пароль'], ['Отправить всем']]
-        return k_clients
-    return []
-
+        return ReplyKeyboardMarkup(k_clients, resize_keyboard=True)
+    return ReplyKeyboardRemove()
 
 
 @log
 def check_password(func):
     @functools.wraps(func)
-    @log
-def decorator(*args, **kwargs):
+    def decorator(*args, **kwargs):
         bot, update = args
         uid = update.message.from_user.id
         message = update.message.text
@@ -145,7 +141,8 @@ def make_search(message):
 def start(bot, update):
     print(update)
     uid = update.message.from_user.id
-    bot.sendMessage(uid, start_msg, reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True),
+    bot.sendMessage(uid, start_msg, 
+                    reply_markup=get_reply_keyboard(uid),
                     disable_web_page_preview=True)
 
 
@@ -158,21 +155,17 @@ def search_wo_cat(bot, update):
     msg = ''
     res = make_search(message)
     if not res:
-        if unknown_req_add(uid, message.strip('"\'!?[]{},. ')):
-            bot.sendMessage(uid, search_fckup_msg,
-                            disable_web_page_preview=True,
-                            reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
-        else:
-
-            bot.sendMessage(uid, search_fckup_msg,
-                            disable_web_page_preview=True,
-                            reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
-            return
+        unknown_req_add(uid, message.strip('"\'!?[]{},. '))
+        bot.sendMessage(uid, search_fckup_msg,
+                        disable_web_page_preview=True,
+                        reply_markup=get_reply_keyboard(uid))
+        bot.sendMessage(OLEG, 'Новый поиск!\n\n' + message)
+        return
     for m in res:
         msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
     bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML,
                     disable_web_page_preview=True,
-                    reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
+                    reply_markup=get_reply_keyboard(uid))
     botan.track(update.message, event_name='search_wo_cat')
 
 
@@ -214,7 +207,7 @@ def process_file(bot, update):
                     msg += '<b>{}</b>\n{}\n{}\n\n'.format(m.name, m.description, m.url)
                 bot.sendMessage(tid, msg, parse_mode=ParseMode.HTML,
                                 disable_web_page_preview=True,
-                                reply_markup=ReplyKeyboardMarkup(get_new_layout(tid), resize_keyboard=True))
+                                reply_markup=get_reply_keyboard(tid))
         bot.sendMessage(uid, 'Обновления пользователям отправил')
 
 
@@ -310,11 +303,11 @@ def start_send(bot, update):
         t = Thread(target=mails, args=(bot, text, uid), name='mails')
         t.start()
         bot.sendMessage(uid, 'Начал отправку',
-                        reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
+                        reply_markup=get_reply_keyboard(uid))
     elif message == 'Нет':
         del user_data[uid]
         bot.sendMessage(uid, 'Ок, не будет ничего отправлять :)',
-                        reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
+                        reply_markup=get_reply_keyboard(uid))
         return ConversationHandler.END
     else:
         return
@@ -328,7 +321,7 @@ def clear(bot, update):
     if UndefinedRequests.table_exists():
         UndefinedRequests.drop_table()
     UndefinedRequests.create_table()
-    bot.send_message(uid, 'Таблицу очистил', reply_markup=ReplyKeyboardMarkup(get_new_layout(uid), resize_keyboard=True))
+    bot.send_message(uid, 'Таблицу очистил', reply_markup=get_reply_keyboard(uid))
  
 if __name__ == '__main__':
     updater = None
