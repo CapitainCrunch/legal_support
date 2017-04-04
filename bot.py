@@ -5,7 +5,7 @@ from datetime import datetime as dt
 import os
 import sys
 import functools
-from utils import get_alias_match
+from utils import get_alias_match, log
 from threading import Thread
 from itertools import zip_longest
 from telegram import ReplyKeyboardMarkup, ParseMode, ReplyKeyboardRemove
@@ -53,12 +53,14 @@ search_fckup_msg = '''Информация по Вашему запросу по
 В случае проверки помощник информирует о порядке действий ("проверка", "ход проверки", "ответы проверяющим" и т.п.) и предоставляет контакты уполномоченных лиц ("служба безопасности").'''
 
 
+@log
 def generate_password():
     s = 'abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     passlen = 8
     return ''.join(random.sample(s, passlen))
 
 
+@log
 def unknown_req_add(tid, txt):
     before_request_handler()
     try:
@@ -72,6 +74,7 @@ def unknown_req_add(tid, txt):
     return False
 
 
+@log
 def get_new_layout(uid):
     if uid in ADMINS:
         k_clients = [['Выгрузка'], ['Сгенерировать пароль'], ['Отправить всем']]
@@ -80,9 +83,11 @@ def get_new_layout(uid):
 
 
 
+@log
 def check_password(func):
     @functools.wraps(func)
-    def decorator(*args, **kwargs):
+    @log
+def decorator(*args, **kwargs):
         bot, update = args
         uid = update.message.from_user.id
         message = update.message.text
@@ -111,6 +116,7 @@ def check_password(func):
     return decorator
 
 
+@log
 def make_search(message):
     res = []
     try:
@@ -135,6 +141,7 @@ def make_search(message):
 
 
 @check_password
+@log
 def start(bot, update):
     print(update)
     uid = update.message.from_user.id
@@ -143,6 +150,7 @@ def start(bot, update):
 
 
 @check_password
+@log
 def search_wo_cat(bot, update):
     print(update)
     uid = update.message.from_user.id
@@ -168,6 +176,7 @@ def search_wo_cat(bot, update):
     botan.track(update.message, event_name='search_wo_cat')
 
 
+@log
 def process_file(bot, update):
     uid = update.message.from_user.id
     if uid in ADMINS:
@@ -209,6 +218,7 @@ def process_file(bot, update):
         bot.sendMessage(uid, 'Обновления пользователям отправил')
 
 
+@log
 def output(bot, update):
     print(update)
     uid = update.message.from_user.id
@@ -226,6 +236,7 @@ def output(bot, update):
     os.remove(fname)
 
 
+@log
 def get_new_password(bot, update):
     uid = update.message.from_user.id
     r_keyboard = [['Да'], ['Нет']]
@@ -245,6 +256,7 @@ def get_new_password(bot, update):
                 return APPROVE
 
 
+@log
 def approve(bot, update):
     uid = update.message.from_user.id
     message = update.message.text
@@ -260,6 +272,7 @@ def approve(bot, update):
     bot.sendMessage(uid, 'Ответь на вопрос :)')
 
 
+@log
 def start_sendtoall(bot, update):
     uid = update.message.from_user.id
     if uid not in ADMINS:
@@ -268,6 +281,7 @@ def start_sendtoall(bot, update):
     return SECOND
 
 
+@log
 def get_text_to_send(bot, update):
     uid = update.message.from_user.id
     message = update.message.text
@@ -276,6 +290,7 @@ def get_text_to_send(bot, update):
     return THIRD
 
 
+@log
 def mails(bot, text, reply_uid):
     uids = [t.telegram_id for t in Users.select().execute()]
     for uid in uids:
@@ -286,6 +301,7 @@ def mails(bot, text, reply_uid):
     bot.sendMessage(reply_uid, 'Всем отправил')
 
 
+@log
 def start_send(bot, update):
     uid = update.message.from_user.id
     message = update.message.text
@@ -304,6 +320,7 @@ def start_send(bot, update):
         return
 
 
+@log
 def clear(bot, update):
     uid = update.message.from_user.id
     if uid not in ADMINS:
