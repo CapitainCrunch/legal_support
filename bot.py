@@ -53,14 +53,12 @@ search_fckup_msg = '''Информация по Вашему запросу по
 В случае проверки помощник информирует о порядке действий ("проверка", "ход проверки", "ответы проверяющим" и т.п.) и предоставляет контакты уполномоченных лиц ("служба безопасности").'''
 
 
-@log
 def generate_password():
     s = 'abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     passlen = 8
     return ''.join(random.sample(s, passlen))
 
 
-@log
 def unknown_req_add(tid, txt):
     before_request_handler()
     try:
@@ -72,7 +70,6 @@ def unknown_req_add(tid, txt):
     return True
 
 
-@log
 def get_reply_keyboard(uid):
     if uid in ADMINS:
         k_clients = [['Выгрузка'], ['Сгенерировать пароль'], ['Отправить всем']]
@@ -80,7 +77,6 @@ def get_reply_keyboard(uid):
     return ReplyKeyboardRemove()
 
 
-@log
 def check_password(func):
     @functools.wraps(func)
     def decorator(*args, **kwargs):
@@ -112,7 +108,6 @@ def check_password(func):
     return decorator
 
 
-@log
 def make_search(message):
     res = []
     try:
