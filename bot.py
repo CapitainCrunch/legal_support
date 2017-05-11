@@ -15,7 +15,7 @@ from config import ALLTESTS, BOTAN_TOKEN, LEGAL, ADMINS, OLEG
 from pyexcel_xlsx import get_data, save_data
 from model import save, Users, \
     UndefinedRequests, Company, Good, Service, Aliases, DoesNotExist, fn, \
-    before_request_handler, after_request_handler, Passwords
+    before_request_handler, after_request_handler, Passwords, Requests
 
 
 start_msg = '''Вас приветствует автоматический помощник для персонала магазинов, позволяющий оперативно решать юридические вопросы.
@@ -68,6 +68,13 @@ def unknown_req_add(tid, txt):
         UndefinedRequests.create(from_user=tid, request=txt)
         after_request_handler()
     return True
+
+
+def add_request(message):
+    message = message.lower().strip()
+    before_request_handler()
+    Requests.insert(message=message).execute()
+    after_request_handler()
 
 
 def get_reply_keyboard(uid):
@@ -147,6 +154,7 @@ def search_wo_cat(bot, update):
     print(update)
     uid = update.message.from_user.id
     message = update.message.text.strip('"\'!?[]{},. ').lower()
+    add_request(message)
     msg = ''
     res = make_search(message)
     if not res:
@@ -214,13 +222,31 @@ def output(bot, update):
         return
     foud = OrderedDict()
     before_request_handler()
+    new_users = Users.select(fn.date(Users.dt).alias('add_dt'),
+                             fn.count(Users.telegram_id).alias('count')).\
+        group_by(fn.date(Users.dt))
+
     res = UndefinedRequests.select(UndefinedRequests.request, fn.COUNT(UndefinedRequests.id).alias('count')).\
         group_by(UndefinedRequests.request).execute()
+
+    count_messages = Requests.select(fn.date(Requests.dt).alias('add_dt'),
+                                     fn.count(Requests.message).alias('count')).\
+        group_by(fn.date(Requests.dt))
+
+    messages = Requests.select(Requests.message,
+                               fn.count(Requests.message).alias('count')).\
+        group_by(Requests.message).\
+        order_by(Requests.message)
     after_request_handler()
+    foud.update({'Что пишут': [(r.message, r.count) for r in messages]})
+    foud.update({'Запросы': [(r.add_dt, r.count) for r in count_messages]})
+    foud.update({'Пользователи': [(r.add_dt, r.count) for r in new_users]})
     foud.update({'Отсутствия в базе': [(r.request, r.count) for r in res]})
-    fname = str(dt.now()) + '.xlsx'
+    fname = 'Статистика.xlsx'
     save_data(fname, foud)
-    bot.sendDocument(uid, document=open(fname, 'rb'))
+    bot.sendDocument(uid,
+                     document=open(fname, 'rb'),
+                     caption=dt.now().date())
     os.remove(fname)
 
 

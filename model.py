@@ -48,7 +48,7 @@ class Service(BaseModel):
 
 class UndefinedRequests(BaseModel):
     from_user = ForeignKeyField(Users,
-                                  to_field='telegram_id')
+                                to_field='telegram_id')
     request = CharField()
     is_answered = BooleanField(default=False)
 
@@ -162,8 +162,13 @@ class Passwords(BaseModel):
     active = BooleanField(default=True)
 
 
+class Requests(BaseModel):
+    message = CharField()
+
+
 def init_db():
-    tables = [Users, Company, Good, Service, UndefinedRequests, Aliases, Passwords]
+    tables = [Users, Company, Good, Service, UndefinedRequests,
+              Aliases, Passwords, Requests]
     for t in tables:
         if t.table_exists():
             t.drop_table()
