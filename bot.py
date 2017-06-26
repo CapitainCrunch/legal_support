@@ -326,6 +326,7 @@ def start_send(bot, update):
         t.start()
         bot.sendMessage(uid, 'Начал отправку',
                         reply_markup=get_reply_keyboard(uid))
+        return ConversationHandler.END
     elif message == 'Нет':
         del user_data[uid]
         bot.sendMessage(uid, 'Ок, не будет ничего отправлять :)',
