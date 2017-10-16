@@ -94,7 +94,10 @@ def check_password(func):
         name = update.message.from_user.first_name
         before_request_handler()
         active_pass = Passwords.get(Passwords.active == 1).password
-        user, created = Users.get_or_create(telegram_id=uid, username=username, name=name)
+        user, created = Users.get_or_create(telegram_id=uid)
+        user.username = username
+        user.name = name
+        user.save()
         if created:
             bot.sendMessage(uid, 'Введите пароль')
         elif user.current_password == active_pass:

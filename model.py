@@ -25,7 +25,7 @@ class Users(BaseModel):
     telegram_id = IntegerField(unique=1)
     username = CharField(null=True)
     current_password = CharField(null=True)
-    name = CharField()
+    name = CharField(null=True)
 
 
 class Company(BaseModel):
