@@ -350,6 +350,33 @@ def clear(bot, update):
     bot.send_message(uid, 'Таблицу очистил', reply_markup=get_reply_keyboard(uid))
 
 
+@log
+def clearbase(bot, update):
+    uid = update.message.from_user.id
+    if uid not in ADMINS:
+        return
+    try:
+        Company.drop_table()
+        Company.create_table()
+
+        Service.drop_table()
+        Service.create_table()
+
+        Good.drop_table()
+        Good.create_table()
+
+        Aliases.drop_table()
+        Aliases.create_table()
+    except:
+        bot.send_message(
+            uid,
+            'Что-то пошло не так. Не все таблицы очищены',
+            reply_markup=get_reply_keyboard(uid)
+        )
+        return
+    bot.send_message(uid, 'Таблицу очистил', reply_markup=get_reply_keyboard(uid))
+
+
 if __name__ == '__main__':
     updater = None
     token = None
@@ -370,6 +397,7 @@ if __name__ == '__main__':
     dp.add_handler(CommandHandler('unload', output))
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(CommandHandler('clear', clear))
+    dp.add_handler(CommandHandler('clearbase', clearbase))
     dp.add_handler(RegexHandler('^Выгрузка$', output))
     pass_change = ConversationHandler(
         entry_points=[RegexHandler('^Сгенерировать пароль$', get_new_password)],

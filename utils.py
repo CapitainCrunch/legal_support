@@ -106,8 +106,6 @@ def get_alias_match(message):
     return check_aliases
 
 
-
-
 def log(func):
     logger = logging.getLogger(func.__module__)
 
