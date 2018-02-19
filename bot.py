@@ -15,7 +15,7 @@ from config import ALLTESTS, BOTAN_TOKEN, LEGAL, ADMINS, OLEG
 from pyexcel_xlsx import get_data, save_data
 from model import save, Users, \
     UndefinedRequests, Company, Good, Service, Aliases, DoesNotExist, fn, \
-    before_request_handler, after_request_handler, Passwords, Requests
+    Passwords, Requests
 
 
 start_msg = '''Вас приветствует автоматический помощник для персонала магазинов, позволяющий оперативно решать юридические вопросы.
@@ -60,21 +60,17 @@ def generate_password():
 
 
 def unknown_req_add(tid, txt):
-    before_request_handler()
     try:
         UndefinedRequests.get(fn.lower(UndefinedRequests.request) == txt.lower())
         UndefinedRequests.create(from_user=tid, request=txt)
     except DoesNotExist:
         UndefinedRequests.create(from_user=tid, request=txt)
-        after_request_handler()
     return True
 
 
 def add_request(message):
     message = message.lower().strip()
-    before_request_handler()
     Requests.insert(message=message).execute()
-    after_request_handler()
 
 
 def get_reply_keyboard(uid):
@@ -92,7 +88,6 @@ def check_password(func):
         message = update.message.text
         username = update.message.from_user.username
         name = update.message.from_user.first_name
-        before_request_handler()
         active_pass = Passwords.get(Passwords.active == 1).password
         user, created = Users.get_or_create(telegram_id=uid)
         user.username = username
@@ -114,7 +109,6 @@ def check_password(func):
         else:
             bot.sendMessage(uid, 'Пароль неправильный, попробуйте еще раз')
 
-        after_request_handler()
     return decorator
 
 
@@ -131,13 +125,11 @@ def make_search(message):
     for model in dbs.values():
         if model == Aliases:
             continue
-        before_request_handler()
         try:
             search = model.get(fn.lower(model.name) == message.lower())
             res.append(search)
         except DoesNotExist:
             pass
-        after_request_handler()
     return res
 
 
@@ -146,7 +138,7 @@ def make_search(message):
 def start(bot, update):
     print(update)
     uid = update.message.from_user.id
-    bot.sendMessage(uid, start_msg, 
+    bot.sendMessage(uid, start_msg,
                     reply_markup=get_reply_keyboard(uid),
                     disable_web_page_preview=True)
 
@@ -224,7 +216,6 @@ def output(bot, update):
     if uid not in ADMINS:
         return
     foud = OrderedDict()
-    before_request_handler()
     new_users = Users.select(fn.date(Users.dt).alias('add_dt'),
                              fn.count(Users.telegram_id).alias('count')).\
         group_by(fn.date(Users.dt))
@@ -240,7 +231,6 @@ def output(bot, update):
                                fn.count(Requests.message).alias('count')).\
         group_by(Requests.message).\
         order_by(Requests.message)
-    after_request_handler()
     foud.update({'Что пишут': [(r.message, r.count) for r in messages]})
     foud.update({'Запросы': [(r.add_dt, r.count) for r in count_messages]})
     foud.update({'Пользователи': [(r.add_dt, r.count) for r in new_users]})
@@ -260,7 +250,6 @@ def get_new_password(bot, update):
     if not user_data.get(uid):
         user_data[uid] = {}
     if uid in ADMINS:
-        before_request_handler()
         while True:
             new_password = generate_password()
             user_data[uid]['current_pass'] = new_password
@@ -269,7 +258,6 @@ def get_new_password(bot, update):
                 bot.sendMessage(uid, 'Новый пароль: <b>{}</b>\nМеняем?'.format(new_password),
                                 parse_mode=ParseMode.HTML,
                                 reply_markup=ReplyKeyboardMarkup(r_keyboard, resize_keyboard=True))
-                after_request_handler()
                 return APPROVE
 
 

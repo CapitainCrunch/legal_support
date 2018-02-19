@@ -10,7 +10,7 @@ class MyRetryDB(RetryOperationalError, MySQLDatabase):
     pass
 
 
-db = MyRetryDB('legal_support', **MYSQL_CONN)
+db = MyRetryDB('legaltrial', **MYSQL_CONN)
 
 
 class BaseModel(Model):
