@@ -370,7 +370,7 @@ if __name__ == '__main__':
     token = None
     if len(sys.argv) > 1:
         token = sys.argv[-1]
-        if token.lower() == 'legal':
+        if token.lower() == 'legaltrial':
             updater = Updater(LEGAL)
             BASE_DIR = os.path.dirname(os.path.abspath(__file__))
             logging.basicConfig(filename=BASE_DIR + '/out.log',
