@@ -10,8 +10,7 @@ from threading import Thread
 from itertools import zip_longest
 from telegram import ReplyKeyboardMarkup, ParseMode, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, RegexHandler, MessageHandler, Filters, ConversationHandler
-from telegram.contrib.botan import Botan
-from config import ALLTESTS, BOTAN_TOKEN, LEGAL, ADMINS, OLEG
+from config import ALLTESTS, LEGAL, ADMINS, OLEG
 from pyexcel_xlsx import get_data, save_data
 from model import save, Users, \
     UndefinedRequests, Company, Good, Service, Aliases, DoesNotExist, fn, \
@@ -41,8 +40,6 @@ dbs = {'Компания': Company,
 
 SEARCH = 1
 user_data = dict()
-
-botan = Botan(BOTAN_TOKEN)
 
 search_fckup_msg = '''Информация по Вашему запросу пока отсутствует в базе. Операторы добавят необходимые сведения в течение 24 часов.
 
@@ -164,7 +161,6 @@ def search_wo_cat(bot, update):
     bot.sendMessage(uid, msg, parse_mode=ParseMode.HTML,
                     disable_web_page_preview=True,
                     reply_markup=get_reply_keyboard(uid))
-    botan.track(update.message, event_name='search_wo_cat')
 
 
 @log
